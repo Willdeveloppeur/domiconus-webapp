@@ -249,15 +249,67 @@
         // Connecter wallet
         async function connectWallet() {
             try {
-                // Vérifier si Phantom/Solflare est installé
+                // IMPORTANT : Dans Telegram, window.solana peut ne pas exister
+                // On doit utiliser Solana Mobile Wallet Adapter
+                
+                // Vérifier si on est dans Telegram Web App
+                const isTelegramWebApp = window.Telegram && window.Telegram.WebApp;
+                
+                if (isTelegramWebApp) {
+                    // Dans Telegram, on doit ouvrir l'app wallet en deeplink
+                    // Phantom deeplink
+                    const dappUrl = window.location.href;
+                    const phantomUrl = `https://phantom.app/ul/browse/${encodeURIComponent(dappUrl)}?ref=domiconus`;
+                    
+                    // Essayer de détecter si Phantom est installé
+                    const checkPhantom = () => {
+                        return new Promise((resolve) => {
+                            // Timeout de 2 secondes pour détecter wallet
+                            const timeout = setTimeout(() => {
+                                resolve(false);
+                            }, 2000);
+                            
+                            // Vérifier périodiquement
+                            const interval = setInterval(() => {
+                                if (window.solana && window.solana.isPhantom) {
+                                    clearTimeout(timeout);
+                                    clearInterval(interval);
+                                    resolve(true);
+                                }
+                            }, 100);
+                        });
+                    };
+                    
+                    const hasWallet = await checkPhantom();
+                    
+                    if (!hasWallet) {
+                        // Pas de wallet détecté, proposer d'ouvrir dans Phantom
+                        if (confirm("Pour vous connecter, vous devez ouvrir cette page dans votre wallet Phantom.\n\nOuvrir Phantom ?")) {
+                            window.open(phantomUrl, '_blank');
+                        }
+                        return;
+                    }
+                }
+                
+                // Vérifier si wallet est disponible
                 if (window.solana && window.solana.isPhantom) {
                     provider = window.solana;
                 } else if (window.solflare && window.solflare.isSolflare) {
                     provider = window.solflare;
                 } else {
-                    alert("⚠️ Veuillez installer Phantom ou Solflare");
-                    // Rediriger vers installation
-                    window.open("https://phantom.app/", "_blank");
+                    // Aucun wallet détecté
+                    const installChoice = confirm("⚠️ Aucun wallet Solana détecté.\n\nVous devez installer Phantom pour continuer.\n\nInstaller maintenant ?");
+                    
+                    if (installChoice) {
+                        // Rediriger vers installation
+                        if (isTelegramWebApp) {
+                            // Sur mobile, ouvrir l'app store
+                            window.open("https://phantom.app/download", "_blank");
+                        } else {
+                            // Sur desktop, ouvrir extension
+                            window.open("https://phantom.app/", "_blank");
+                        }
+                    }
                     return;
                 }
 
@@ -272,14 +324,21 @@
                     walletAddress.slice(0, 8) + '...' + walletAddress.slice(-8);
 
                 // Notifier Telegram
-                tg.sendData(JSON.stringify({
-                    action: 'wallet_connected',
-                    address: walletAddress
-                }));
+                if (tg && tg.sendData) {
+                    tg.sendData(JSON.stringify({
+                        action: 'wallet_connected',
+                        address: walletAddress
+                    }));
+                }
 
             } catch (err) {
-                console.error(err);
-                alert("❌ Erreur de connexion");
+                console.error("Wallet connection error:", err);
+                
+                if (err.message && err.message.includes('User rejected')) {
+                    alert("❌ Connexion refusée");
+                } else {
+                    alert("❌ Erreur de connexion au wallet.\n\nAssurez-vous que votre wallet est installé et déverrouillé.");
+                }
             }
         }
 
