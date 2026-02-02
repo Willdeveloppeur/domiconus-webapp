@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acheter Domiconus</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .step {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .step-number {
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        
+        .step-content h3 {
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        
+        .step-content p {
+            font-size: 13px;
+            opacity: 0.8;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+        
+        .wallet-connected {
+            background: rgba(76, 175, 80, 0.3);
+            border: 2px solid #4CAF50;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .wallet-address {
+            font-family: monospace;
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        .warning {
+            background: rgba(255, 152, 0, 0.2);
+            border: 1px solid #FF9800;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 13px;
+        }
+        
+        .warning strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌊 Acheter Domiconus</h1>
+            <p>Transaction sécurisée via Pump.fun</p>
+        </div>
+
+        <!-- Étape 1 : Connexion Wallet -->
+        <div id="step-connect" class="card">
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Connectez votre wallet</h3>
+                    <p>Phantom ou Solflare recommandés</p>
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="connectWallet()">
+                🔗 Connecter mon wallet
+            </button>
+        </div>
+
+        <!-- Étape 2 : Wallet connecté -->
+        <div id="step-connected" class="card hidden">
+            <div class="wallet-connected">
+                <div>✅ Wallet connecté</div>
+                <div class="wallet-address" id="wallet-address"></div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Montant à investir</h3>
+                    <p>Minimum 0.1 SOL</p>
+                </div>
+            </div>
+
+            <input type="number" id="amount" placeholder="Montant en SOL" 
+                   style="width: 100%; padding: 12px; border-radius: 8px; border: none; margin-bottom: 15px; font-size: 16px;"
+                   min="0.1" step="0.1" value="1">
+
+            <div class="warning">
+                <strong>⚠️ Avertissement</strong>
+                Les investissements crypto comportent des risques élevés. Perte totale possible.
+            </div>
+
+            <button class="btn btn-primary" onclick="buyToken()">
+                💰 Acheter maintenant
+            </button>
+            <button class="btn btn-secondary" onclick="disconnectWallet()">
+                🔌 Déconnecter
+            </button>
+        </div>
+
+        <!-- Étape 3 : Transaction en cours -->
+        <div id="step-loading" class="card hidden">
+            <div class="loading">
+                <div class="spinner"></div>
+                <h3>Transaction en cours...</h3>
+                <p>Confirmez dans votre wallet</p>
+            </div>
+        </div>
+
+        <!-- Étape 4 : Succès -->
+        <div id="step-success" class="card hidden">
+            <div style="text-align: center;">
+                <div style="font-size: 60px; margin-bottom: 20px;">🎉</div>
+                <h2>Transaction réussie !</h2>
+                <p style="margin: 15px 0;">Vos tokens Domiconus ont été crédités</p>
+                <button class="btn btn-primary" onclick="closeApp()">
+                    ✅ Retour au bot
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialiser Telegram Web App
+        let tg = window.Telegram.WebApp;
+        tg.expand(); // Plein écran
+        tg.MainButton.hide();
+
+        const TOKEN_ADDRESS = "9bTe1s5BrM3FCy8UTnMmSLvHpa7WdWUoRgH3imLRpump";
+        let walletAddress = null;
+        let provider = null;
+
+        // Connecter wallet
+        async function connectWallet() {
+            try {
+                // Vérifier si Phantom/Solflare est installé
+                if (window.solana && window.solana.isPhantom) {
+                    provider = window.solana;
+                } else if (window.solflare && window.solflare.isSolflare) {
+                    provider = window.solflare;
+                } else {
+                    alert("⚠️ Veuillez installer Phantom ou Solflare");
+                    // Rediriger vers installation
+                    window.open("https://phantom.app/", "_blank");
+                    return;
+                }
+
+                // Demander connexion
+                const resp = await provider.connect();
+                walletAddress = resp.publicKey.toString();
+
+                // Afficher wallet connecté
+                document.getElementById('step-connect').classList.add('hidden');
+                document.getElementById('step-connected').classList.remove('hidden');
+                document.getElementById('wallet-address').textContent = 
+                    walletAddress.slice(0, 8) + '...' + walletAddress.slice(-8);
+
+                // Notifier Telegram
+                tg.sendData(JSON.stringify({
+                    action: 'wallet_connected',
+                    address: walletAddress
+                }));
+
+            } catch (err) {
+                console.error(err);
+                alert("❌ Erreur de connexion");
+            }
+        }
+
+        // Déconnecter
+        function disconnectWallet() {
+            if (provider) {
+                provider.disconnect();
+            }
+            walletAddress = null;
+            document.getElementById('step-connected').classList.add('hidden');
+            document.getElementById('step-connect').classList.remove('hidden');
+        }
+
+        // Acheter token
+        async function buyToken() {
+            const amount = document.getElementById('amount').value;
+            
+            if (!amount || amount < 0.1) {
+                alert("⚠️ Montant minimum : 0.1 SOL");
+                return;
+            }
+
+            // Afficher loading
+            document.getElementById('step-connected').classList.add('hidden');
+            document.getElementById('step-loading').classList.remove('hidden');
+
+            try {
+                // ICI : Intégration avec Pump.fun
+                // Vous devrez utiliser l'API/SDK Pump.fun
+                
+                // Exemple simplifié (à adapter selon Pump.fun)
+                const connection = new solanaWeb3.Connection('https://api.mainnet-beta.solana.com');
+                
+                // Créer transaction
+                const transaction = await createSwapTransaction(amount);
+                
+                // Signer avec wallet
+                const signed = await provider.signTransaction(transaction);
+                
+                // Envoyer transaction
+                const signature = await connection.sendRawTransaction(signed.serialize());
+                
+                // Attendre confirmation
+                await connection.confirmTransaction(signature);
+
+                // Succès
+                document.getElementById('step-loading').classList.add('hidden');
+                document.getElementById('step-success').classList.remove('hidden');
+
+                // Notifier bot Telegram
+                tg.sendData(JSON.stringify({
+                    action: 'purchase_completed',
+                    amount: amount,
+                    signature: signature,
+                    wallet: walletAddress
+                }));
+
+            } catch (err) {
+                console.error(err);
+                alert("❌ Transaction échouée : " + err.message);
+                document.getElementById('step-loading').classList.add('hidden');
+                document.getElementById('step-connected').classList.remove('hidden');
+            }
+        }
+
+        // Créer transaction Pump.fun
+        async function createSwapTransaction(amountSol) {
+            // TODO: Implémenter l'intégration Pump.fun
+            // Ceci nécessite l'API/SDK Pump.fun
+            throw new Error("Intégration Pump.fun à implémenter");
+        }
+
+        // Fermer app
+        function closeApp() {
+            tg.close();
+        }
+
+        // Gestion bouton retour Telegram
+        tg.BackButton.show();
+        tg.BackButton.onClick(function() {
+            tg.close();
+        });
+    </script>
+</body>
+</html>
