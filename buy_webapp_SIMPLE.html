@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acheter Domiconus</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl-fast.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bs58@5.0.0/index.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container { max-width: 500px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { font-size: 28px; margin-bottom: 10px; }
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        .btn-primary:hover { transform: translateY(-2px); }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .wallet-info {
+            background: rgba(76, 175, 80, 0.3);
+            border: 2px solid #4CAF50;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .wallet-address {
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+        }
+        .hidden { display: none; }
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: none;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        .warning {
+            background: rgba(255, 152, 0, 0.2);
+            border: 1px solid #FF9800;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 13px;
+        }
+        .info-box {
+            background: rgba(33, 150, 243, 0.2);
+            border: 1px solid #2196F3;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 13px;
+        }
+        .success-box {
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid #4CAF50;
+            padding: 15px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌊 Acheter Domiconus</h1>
+            <p>Achat direct - Simple et rapide</p>
+        </div>
+
+        <!-- Étape 1: Montant -->
+        <div id="step-amount" class="card">
+            <h3 style="margin-bottom: 15px;">💰 Montant à investir</h3>
+            
+            <div class="info-box">
+                ℹ️ <strong>Nouveau système simplifié</strong><br>
+                Un wallet temporaire sera créé pour vous.<br>
+                Vous recevrez vos tokens directement.
+            </div>
+
+            <label style="font-size: 14px; display: block; margin-bottom: 5px;">Montant en SOL :</label>
+            <input type="number" id="amount" placeholder="Ex: 0.1" min="0.01" step="0.01" value="0.1">
+
+            <div class="warning">
+                <strong>⚠️ Important</strong><br>
+                • Minimum : 0.01 SOL<br>
+                • Risques élevés - Perte possible<br>
+                • Sauvegardez votre clé privée
+            </div>
+
+            <button class="btn btn-primary" onclick="createWalletAndBuy()" id="buy-btn">
+                🚀 Créer wallet & Acheter
+            </button>
+        </div>
+
+        <!-- Étape 2: Création wallet -->
+        <div id="step-creating" class="card hidden">
+            <div style="text-align: center;">
+                <div class="spinner"></div>
+                <h3>Création de votre wallet...</h3>
+                <p>Veuillez patienter</p>
+            </div>
+        </div>
+
+        <!-- Étape 3: Wallet créé - Dépôt -->
+        <div id="step-deposit" class="card hidden">
+            <h3 style="margin-bottom: 15px;">✅ Wallet créé !</h3>
+            
+            <div class="wallet-info">
+                <div style="text-align: center; margin-bottom: 10px;">
+                    <strong>Votre adresse wallet :</strong>
+                </div>
+                <div class="wallet-address" id="wallet-address-display"></div>
+                <button class="btn" style="background: rgba(255,255,255,0.2); color: white; font-size: 14px;" onclick="copyAddress()">
+                    📋 Copier l'adresse
+                </button>
+            </div>
+
+            <div class="info-box">
+                <strong>💡 Pour continuer :</strong><br><br>
+                1️⃣ Copiez l'adresse ci-dessus<br>
+                2️⃣ Envoyez <strong id="amount-needed">...</strong> SOL depuis votre wallet principal<br>
+                3️⃣ Attendez la confirmation (15-30 sec)<br>
+                4️⃣ La transaction se fera automatiquement
+            </div>
+
+            <div style="text-align: center; margin: 20px 0;">
+                <div class="spinner" id="waiting-spinner"></div>
+                <p id="waiting-text">En attente de votre dépôt...</p>
+                <p style="font-size: 12px; opacity: 0.8; margin-top: 10px;">Vérification automatique toutes les 5 secondes</p>
+            </div>
+
+            <div class="warning">
+                <strong>🔐 SAUVEGARDEZ VOTRE CLÉ PRIVÉE</strong><br>
+                <div style="margin-top: 10px;">
+                    <button class="btn btn-primary" onclick="showPrivateKey()">
+                        🔑 Afficher la clé privée
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Étape 4: Transaction -->
+        <div id="step-processing" class="card hidden">
+            <div style="text-align: center;">
+                <div class="spinner"></div>
+                <h3>Transaction en cours...</h3>
+                <p id="processing-text">Achat sur Pump.fun</p>
+            </div>
+        </div>
+
+        <!-- Étape 5: Succès -->
+        <div id="step-success" class="card hidden">
+            <div style="text-align: center;">
+                <div style="font-size: 60px; margin-bottom: 20px;">🎉</div>
+                <h2>Achat réussi !</h2>
+                
+                <div class="success-box">
+                    <div><strong>💰 Investi :</strong> <span id="invested-amount">...</span> SOL</div>
+                    <div style="margin-top: 10px;"><strong>🪙 Tokens :</strong> Voir wallet</div>
+                    <div style="margin-top: 10px; font-size: 12px; word-break: break-all;">
+                        <strong>🔐 Signature :</strong><br>
+                        <span id="tx-signature">...</span>
+                    </div>
+                </div>
+
+                <div class="warning">
+                    <strong>📝 Récupérer vos tokens :</strong><br><br>
+                    1️⃣ Importez votre clé privée dans Phantom<br>
+                    2️⃣ Vos tokens Domiconus seront visibles<br>
+                    3️⃣ Vous pourrez les transférer ou vendre
+                </div>
+
+                <button class="btn btn-primary" onclick="showPrivateKey()">
+                    🔑 Afficher la clé privée
+                </button>
+                
+                <button class="btn" style="background: rgba(255,255,255,0.2); color: white; margin-top: 10px;" onclick="closeApp()">
+                    ✅ Terminé
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal clé privée -->
+        <div id="private-key-modal" class="card hidden" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 90%; z-index: 1000; background: rgba(50, 50, 50, 0.98);">
+            <h3 style="margin-bottom: 15px; color: #f44336;">🔐 CLÉ PRIVÉE</h3>
+            
+            <div class="warning">
+                <strong>⚠️ EXTRÊMEMENT IMPORTANT</strong><br>
+                • Ne partagez JAMAIS cette clé<br>
+                • Sauvegardez-la en lieu sûr<br>
+                • Quiconque l'a peut voler vos fonds
+            </div>
+
+            <div style="background: black; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                <div style="font-family: monospace; font-size: 11px; word-break: break-all; color: #4CAF50;" id="private-key-display"></div>
+            </div>
+
+            <button class="btn btn-primary" onclick="copyPrivateKey()">
+                📋 Copier la clé privée
+            </button>
+            
+            <button class="btn" style="background: rgba(255,255,255,0.2); color: white;" onclick="hidePrivateKey()">
+                ❌ Fermer
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.BackButton.show();
+        tg.BackButton.onClick(() => tg.close());
+
+        const TOKEN_MINT = "9bTe1s5BrM3FCy8UTnMmSLvHpa7WdWUoRgH3imLRpump";
+        const PUMP_API_URL = "https://pumpportal.fun/api/trade-local";
+        
+        let keypair = null;
+        let publicKey = null;
+        let privateKey = null;
+        let checkInterval = null;
+
+        // ========================================
+        // CRÉATION WALLET + ACHAT
+        // ========================================
+        
+        async function createWalletAndBuy() {
+            const amount = parseFloat(document.getElementById('amount').value);
+            
+            if (!amount || amount < 0.01) {
+                alert("⚠️ Montant minimum : 0.01 SOL");
+                return;
+            }
+
+            // Afficher création
+            document.getElementById('step-amount').classList.add('hidden');
+            document.getElementById('step-creating').classList.remove('hidden');
+
+            try {
+                // Créer nouveau wallet
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                const seed = new Uint8Array(32);
+                crypto.getRandomValues(seed);
+                keypair = nacl.sign.keyPair.fromSeed(seed);
+                
+                publicKey = bs58.encode(keypair.publicKey);
+                privateKey = bs58.encode(keypair.secretKey);
+
+                console.log("✅ Wallet créé:", publicKey);
+
+                // Afficher wallet et instructions de dépôt
+                document.getElementById('step-creating').classList.add('hidden');
+                document.getElementById('step-deposit').classList.remove('hidden');
+                
+                document.getElementById('wallet-address-display').textContent = publicKey;
+                document.getElementById('amount-needed').textContent = amount;
+
+                // Démarrer vérification balance
+                startBalanceCheck(amount);
+
+            } catch (err) {
+                console.error("Wallet creation error:", err);
+                alert("❌ Erreur création wallet: " + err.message);
+                document.getElementById('step-creating').classList.add('hidden');
+                document.getElementById('step-amount').classList.remove('hidden');
+            }
+        }
+
+        // ========================================
+        // VÉRIFICATION BALANCE & AUTO-ACHAT
+        // ========================================
+        
+        async function startBalanceCheck(targetAmount) {
+            console.log("🔍 Démarrage vérification balance...");
+            
+            checkInterval = setInterval(async () => {
+                try {
+                    const balance = await getBalance(publicKey);
+                    console.log(`💰 Balance: ${balance} SOL (Attendu: ${targetAmount})`);
+                    
+                    if (balance >= targetAmount) {
+                        clearInterval(checkInterval);
+                        console.log("✅ Fonds reçus ! Démarrage achat...");
+                        
+                        // Lancer transaction automatiquement
+                        await executeBuy(targetAmount);
+                    }
+                } catch (err) {
+                    console.error("Balance check error:", err);
+                }
+            }, 5000); // Vérifier toutes les 5 secondes
+        }
+
+        async function getBalance(address) {
+            const response = await fetch('https://api.mainnet-beta.solana.com', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: 1,
+                    method: 'getBalance',
+                    params: [address]
+                })
+            });
+            
+            const data = await response.json();
+            return data.result.value / 1000000000;
+        }
+
+        // ========================================
+        // EXÉCUTION ACHAT PUMP.FUN
+        // ========================================
+        
+        async function executeBuy(amount) {
+            document.getElementById('step-deposit').classList.add('hidden');
+            document.getElementById('step-processing').classList.remove('hidden');
+
+            try {
+                console.log("🚀 Achat", amount, "SOL sur Pump.fun");
+
+                const amountLamports = Math.floor(amount * 1000000000);
+
+                // Appel API Pump.fun
+                const response = await fetch(PUMP_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        publicKey: publicKey,
+                        action: "buy",
+                        mint: TOKEN_MINT,
+                        amount: amountLamports,
+                        denominatedInSol: "true",
+                        slippage: 15,
+                        priorityFee: 0.0005,
+                        pool: "pump"
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+
+                const transactionData = await response.arrayBuffer();
+                console.log("✅ Transaction créée");
+
+                // Signer transaction
+                const transactionBytes = new Uint8Array(transactionData);
+                const signature = nacl.sign.detached(transactionBytes, keypair.secretKey);
+                
+                // Envoyer transaction signée
+                const signedTx = new Uint8Array([...signature, ...transactionBytes]);
+                const txSignature = await sendTransaction(signedTx);
+                
+                console.log("✅ Transaction envoyée:", txSignature);
+
+                // Attendre confirmation
+                await confirmTransaction(txSignature);
+                
+                console.log("✅ Transaction confirmée");
+
+                // Afficher succès
+                showSuccess(amount, txSignature);
+
+            } catch (err) {
+                console.error("❌ Buy error:", err);
+                alert("❌ Erreur lors de l'achat: " + err.message + "\n\nVos fonds sont toujours dans le wallet. Vous pouvez les récupérer avec la clé privée.");
+                
+                // Retour au dépôt
+                document.getElementById('step-processing').classList.add('hidden');
+                document.getElementById('step-deposit').classList.remove('hidden');
+            }
+        }
+
+        async function sendTransaction(signedTransaction) {
+            const base58Tx = bs58.encode(signedTransaction);
+            
+            const response = await fetch('https://api.mainnet-beta.solana.com', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: 1,
+                    method: 'sendTransaction',
+                    params: [base58Tx, { skipPreflight: false }]
+                })
+            });
+
+            const data = await response.json();
+            if (data.error) throw new Error(data.error.message);
+            return data.result;
+        }
+
+        async function confirmTransaction(signature) {
+            for (let i = 0; i < 30; i++) {
+                const response = await fetch('https://api.mainnet-beta.solana.com', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        id: 1,
+                        method: 'getSignatureStatuses',
+                        params: [[signature]]
+                    })
+                });
+
+                const data = await response.json();
+                const status = data.result?.value?.[0];
+
+                if (status && (status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized')) {
+                    if (status.err) throw new Error('Transaction failed');
+                    return true;
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            throw new Error('Confirmation timeout');
+        }
+
+        // ========================================
+        // UI
+        // ========================================
+        
+        function showSuccess(amount, signature) {
+            document.getElementById('step-processing').classList.add('hidden');
+            document.getElementById('step-success').classList.remove('hidden');
+            
+            document.getElementById('invested-amount').textContent = amount.toFixed(4);
+            document.getElementById('tx-signature').textContent = signature;
+
+            // Notifier Telegram
+            if (tg && tg.sendData) {
+                try {
+                    tg.sendData(JSON.stringify({
+                        action: 'purchase_completed',
+                        amount: amount,
+                        signature: signature,
+                        wallet: publicKey
+                    }));
+                } catch (e) {}
+            }
+        }
+
+        function copyAddress() {
+            navigator.clipboard.writeText(publicKey);
+            alert("✅ Adresse copiée !\n\nCollez-la dans votre wallet pour envoyer des SOL.");
+        }
+
+        function showPrivateKey() {
+            document.getElementById('private-key-display').textContent = privateKey;
+            document.getElementById('private-key-modal').classList.remove('hidden');
+        }
+
+        function hidePrivateKey() {
+            document.getElementById('private-key-modal').classList.add('hidden');
+        }
+
+        function copyPrivateKey() {
+            navigator.clipboard.writeText(privateKey);
+            alert("✅ Clé privée copiée !\n\n⚠️ Gardez-la en lieu sûr !\n\nPour récupérer vos tokens :\n1. Ouvrez Phantom\n2. Importez cette clé\n3. Vos tokens seront visibles");
+        }
+
+        function closeApp() {
+            if (confirm("Avez-vous bien sauvegardé votre clé privée ?\n\nSans elle, vous perdrez l'accès à vos tokens !")) {
+                tg.close();
+            }
+        }
+
+        console.log("🌊 Domiconus - Simple Buy v1.0");
+    </script>
+</body>
+</html>
