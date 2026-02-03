@@ -242,19 +242,79 @@
         
         async function connectWallet() {
             try {
+                console.log("🔍 Tentative connexion wallet...");
+                console.log("📱 User Agent:", navigator.userAgent);
+                console.log("🌐 Is Telegram:", !!(window.Telegram && window.Telegram.WebApp));
+                
+                // Dans Telegram Web App, on doit utiliser le deep link Phantom
+                const isTelegramWebApp = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.platform !== 'unknown';
+                
+                // Attendre un peu pour laisser les providers se charger
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                console.log("🔍 window.solana:", !!window.solana);
+                console.log("🔍 window.solflare:", !!window.solflare);
+                
+                // Vérifier si wallet disponible
                 if (window.solana && window.solana.isPhantom) {
                     provider = window.solana;
-                } else if (window.solflare) {
+                    console.log("✅ Phantom détecté");
+                } else if (window.solflare && window.solflare.isSolflare) {
                     provider = window.solflare;
+                    console.log("✅ Solflare détecté");
+                } else if (isTelegramWebApp) {
+                    // Dans Telegram, proposer d'ouvrir dans le navigateur wallet
+                    console.log("⚠️ Pas de wallet dans Telegram Web App");
+                    
+                    const currentUrl = window.location.href;
+                    
+                    // Créer un lien universel qui essaie d'ouvrir Phantom
+                    const phantomUniversalLink = `https://phantom.app/ul/browse/${encodeURIComponent(currentUrl)}?ref=domiconus`;
+                    
+                    const choice = confirm(
+                        "Pour acheter, vous devez ouvrir cette page dans votre wallet Phantom.\n\n" +
+                        "Option 1: Cliquez OK pour ouvrir dans Phantom\n" +
+                        "Option 2: Copiez l'URL et ouvrez-la dans le navigateur de Phantom"
+                    );
+                    
+                    if (choice) {
+                        console.log("🔗 Ouverture Phantom Universal Link");
+                        window.open(phantomUniversalLink, '_blank');
+                    }
+                    
+                    // Afficher instructions
+                    alert(
+                        "📱 COMMENT PROCÉDER:\n\n" +
+                        "1. Ouvrez l'app Phantom sur votre téléphone\n" +
+                        "2. Allez dans le navigateur intégré (🌐)\n" +
+                        "3. Collez cette URL:\n" +
+                        currentUrl + "\n\n" +
+                        "4. La page se chargera avec votre wallet connecté"
+                    );
+                    
+                    return;
                 } else {
-                    if (confirm("Phantom wallet requis.\n\nInstaller maintenant ?")) {
-                        window.open("https://phantom.app/download", "_blank");
+                    // Pas dans Telegram et pas de wallet
+                    console.log("❌ Aucun wallet détecté");
+                    
+                    if (confirm("Phantom wallet requis pour continuer.\n\nInstaller maintenant ?")) {
+                        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                        
+                        if (isMobile) {
+                            window.open("https://phantom.app/download", "_blank");
+                        } else {
+                            window.open("https://phantom.app/", "_blank");
+                        }
                     }
                     return;
                 }
 
+                // Connexion au wallet
+                console.log("🔗 Connexion au wallet...");
                 const resp = await provider.connect();
                 walletAddress = resp.publicKey.toString();
+
+                console.log("✅ Wallet connecté:", walletAddress);
 
                 // Afficher wallet
                 document.getElementById('step-connect').classList.add('hidden');
@@ -270,16 +330,27 @@
 
                 // Notifier Telegram
                 if (tg && tg.sendData) {
-                    tg.sendData(JSON.stringify({
-                        action: 'wallet_connected',
-                        address: walletAddress
-                    }));
+                    try {
+                        tg.sendData(JSON.stringify({
+                            action: 'wallet_connected',
+                            address: walletAddress
+                        }));
+                    } catch (e) {
+                        console.log("Telegram sendData not available");
+                    }
                 }
                 
-                console.log("✅ Wallet connecté:", walletAddress);
             } catch (err) {
-                console.error("Connection error:", err);
-                alert("❌ Erreur de connexion: " + err.message);
+                console.error("❌ Connection error:", err);
+                
+                // Messages d'erreur plus clairs
+                if (err.message && err.message.includes('User rejected')) {
+                    alert("❌ Vous avez refusé la connexion au wallet.");
+                } else if (err.code === 4001) {
+                    alert("❌ Connexion refusée dans le wallet.");
+                } else {
+                    alert("❌ Erreur de connexion: " + err.message);
+                }
             }
         }
 
