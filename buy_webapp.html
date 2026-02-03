@@ -243,17 +243,15 @@
         async function connectWallet() {
             try {
                 console.log("🔍 Tentative connexion wallet...");
-                console.log("📱 User Agent:", navigator.userAgent);
-                console.log("🌐 Is Telegram:", !!(window.Telegram && window.Telegram.WebApp));
                 
                 // Dans Telegram Web App, on doit utiliser le deep link Phantom
                 const isTelegramWebApp = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.platform !== 'unknown';
                 
                 // Attendre un peu pour laisser les providers se charger
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise(resolve => setTimeout(resolve, 300));
                 
                 console.log("🔍 window.solana:", !!window.solana);
-                console.log("🔍 window.solflare:", !!window.solflare);
+                console.log("🔍 Is Telegram:", isTelegramWebApp);
                 
                 // Vérifier si wallet disponible
                 if (window.solana && window.solana.isPhantom) {
@@ -262,51 +260,35 @@
                 } else if (window.solflare && window.solflare.isSolflare) {
                     provider = window.solflare;
                     console.log("✅ Solflare détecté");
-                } else if (isTelegramWebApp) {
-                    // Dans Telegram, proposer d'ouvrir dans le navigateur wallet
-                    console.log("⚠️ Pas de wallet dans Telegram Web App");
-                    
-                    const currentUrl = window.location.href;
-                    
-                    // Créer un lien universel qui essaie d'ouvrir Phantom
-                    const phantomUniversalLink = `https://phantom.app/ul/browse/${encodeURIComponent(currentUrl)}?ref=domiconus`;
-                    
-                    const choice = confirm(
-                        "Pour acheter, vous devez ouvrir cette page dans votre wallet Phantom.\n\n" +
-                        "Option 1: Cliquez OK pour ouvrir dans Phantom\n" +
-                        "Option 2: Copiez l'URL et ouvrez-la dans le navigateur de Phantom"
-                    );
-                    
-                    if (choice) {
-                        console.log("🔗 Ouverture Phantom Universal Link");
-                        window.open(phantomUniversalLink, '_blank');
-                    }
-                    
-                    // Afficher instructions
-                    alert(
-                        "📱 COMMENT PROCÉDER:\n\n" +
-                        "1. Ouvrez l'app Phantom sur votre téléphone\n" +
-                        "2. Allez dans le navigateur intégré (🌐)\n" +
-                        "3. Collez cette URL:\n" +
-                        currentUrl + "\n\n" +
-                        "4. La page se chargera avec votre wallet connecté"
-                    );
-                    
-                    return;
                 } else {
-                    // Pas dans Telegram et pas de wallet
+                    // Pas de wallet détecté
                     console.log("❌ Aucun wallet détecté");
+                    console.log("📱 Is Telegram WebApp:", isTelegramWebApp);
                     
-                    if (confirm("Phantom wallet requis pour continuer.\n\nInstaller maintenant ?")) {
-                        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                    if (isTelegramWebApp) {
+                        // Dans Telegram, rediriger vers Phantom browser
+                        const currentUrl = window.location.href;
+                        const phantomUrl = `https://phantom.app/ul/browse/${encodeURIComponent(currentUrl)}?ref=domiconus`;
                         
-                        if (isMobile) {
-                            window.open("https://phantom.app/download", "_blank");
-                        } else {
-                            window.open("https://phantom.app/", "_blank");
+                        alert(
+                            "🔐 Wallet Phantom requis\n\n" +
+                            "Vous allez être redirigé vers Phantom.\n" +
+                            "La page se rechargera avec votre wallet connecté."
+                        );
+                        
+                        console.log("🔗 Redirection vers Phantom:", phantomUrl);
+                        
+                        // REDIRECTION (pas nouvelle fenêtre)
+                        window.location.href = phantomUrl;
+                        return;
+                    } else {
+                        // Navigateur normal sans wallet
+                        if (confirm("Phantom wallet requis.\n\nInstaller l'extension maintenant ?")) {
+                            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                            window.location.href = isMobile ? "https://phantom.app/download" : "https://phantom.app/";
                         }
+                        return;
                     }
-                    return;
                 }
 
                 // Connexion au wallet
