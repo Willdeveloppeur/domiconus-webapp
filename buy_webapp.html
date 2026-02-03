@@ -120,6 +120,29 @@
             <p>Transaction sécurisée via Pump.fun</p>
         </div>
 
+        <!-- Instructions selon plateforme -->
+        <div class="card" id="instructions-card">
+            <div id="instructions-pc" style="display: none;">
+                <h3 style="margin-bottom: 10px;">💻 Sur PC</h3>
+                <p style="font-size: 14px; line-height: 1.6;">
+                    Pour acheter sur PC, vous devez :<br>
+                    1️⃣ Installer l'extension Phantom pour Chrome/Firefox<br>
+                    2️⃣ Créer ou importer votre wallet<br>
+                    3️⃣ Recharger cette page<br>
+                    4️⃣ Connecter votre wallet
+                </p>
+            </div>
+            <div id="instructions-mobile" style="display: none;">
+                <h3 style="margin-bottom: 10px;">📱 Sur Mobile</h3>
+                <p style="font-size: 14px; line-height: 1.6;">
+                    Pour acheter sur mobile :<br>
+                    1️⃣ Installez l'app Phantom<br>
+                    2️⃣ Ouvrez cette page dans le navigateur Phantom (🌐)<br>
+                    3️⃣ Votre wallet sera connecté automatiquement
+                </p>
+            </div>
+        </div>
+
         <!-- Étape 1: Connexion -->
         <div id="step-connect" class="card">
             <h3 style="margin-bottom: 15px;">1️⃣ Connectez votre wallet</h3>
@@ -244,73 +267,101 @@
             try {
                 console.log("🔍 Tentative connexion wallet...");
                 
-                // Dans Telegram Web App, on doit utiliser le deep link Phantom
+                // Détection environnement
+                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
                 const isTelegramWebApp = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.platform !== 'unknown';
                 
-                // Attendre un peu pour laisser les providers se charger
-                await new Promise(resolve => setTimeout(resolve, 300));
+                console.log("💻 Is Mobile:", isMobile);
+                console.log("📱 Is Telegram:", isTelegramWebApp);
                 
-                console.log("🔍 window.solana:", !!window.solana);
-                console.log("🔍 Is Telegram:", isTelegramWebApp);
+                // Attendre chargement providers
+                await new Promise(resolve => setTimeout(resolve, 300));
                 
                 // Vérifier si wallet disponible
                 if (window.solana && window.solana.isPhantom) {
                     provider = window.solana;
-                    console.log("✅ Phantom détecté");
+                    console.log("✅ Phantom détecté - Connexion directe");
                 } else if (window.solflare && window.solflare.isSolflare) {
                     provider = window.solflare;
-                    console.log("✅ Solflare détecté");
+                    console.log("✅ Solflare détecté - Connexion directe");
                 } else {
                     // Pas de wallet détecté
                     console.log("❌ Aucun wallet détecté");
-                    console.log("📱 Is Telegram WebApp:", isTelegramWebApp);
                     
-                    if (isTelegramWebApp) {
-                        // Dans Telegram, rediriger vers Phantom browser
+                    // ========== PC ==========
+                    if (!isMobile) {
+                        console.log("💻 Détecté: PC Desktop");
+                        
+                        alert(
+                            "🔐 Extension Phantom requise\n\n" +
+                            "Sur PC, vous devez installer l'extension Phantom pour Chrome/Firefox.\n\n" +
+                            "Après l'installation, rechargez cette page."
+                        );
+                        
+                        // Ouvrir page installation Phantom dans nouvel onglet
+                        window.open("https://phantom.app/", "_blank");
+                        
+                        // Proposer de recharger
+                        setTimeout(() => {
+                            if (confirm("Extension installée ?\n\nCliquez OK pour recharger la page.")) {
+                                window.location.reload();
+                            }
+                        }, 5000);
+                        
+                        return;
+                    }
+                    
+                    // ========== MOBILE TELEGRAM ==========
+                    else if (isMobile && isTelegramWebApp) {
+                        console.log("📱 Détecté: Mobile Telegram");
+                        
                         const currentUrl = window.location.href;
                         const phantomUrl = `https://phantom.app/ul/browse/${encodeURIComponent(currentUrl)}?ref=domiconus`;
                         
                         alert(
-                            "🔐 Wallet Phantom requis\n\n" +
-                            "Vous allez être redirigé vers Phantom.\n" +
-                            "La page se rechargera avec votre wallet connecté."
+                            "📱 Ouverture dans Phantom\n\n" +
+                            "Vous allez être redirigé vers l'app Phantom.\n" +
+                            "Votre wallet sera connecté automatiquement."
                         );
                         
-                        console.log("🔗 Redirection vers Phantom:", phantomUrl);
-                        
-                        // REDIRECTION (pas nouvelle fenêtre)
+                        console.log("🔗 Redirection Phantom:", phantomUrl);
                         window.location.href = phantomUrl;
                         return;
-                    } else {
-                        // Navigateur normal sans wallet
-                        if (confirm("Phantom wallet requis.\n\nInstaller l'extension maintenant ?")) {
-                            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-                            window.location.href = isMobile ? "https://phantom.app/download" : "https://phantom.app/";
-                        }
+                    }
+                    
+                    // ========== MOBILE NAVIGATEUR ==========
+                    else if (isMobile) {
+                        console.log("📱 Détecté: Mobile navigateur");
+                        
+                        alert(
+                            "📱 App Phantom requise\n\n" +
+                            "Vous allez être redirigé vers le store pour installer Phantom.\n\n" +
+                            "Après installation, ouvrez cette page dans le navigateur de Phantom."
+                        );
+                        
+                        window.location.href = "https://phantom.app/download";
                         return;
                     }
                 }
 
-                // Connexion au wallet
+                // ========== CONNEXION WALLET ==========
                 console.log("🔗 Connexion au wallet...");
                 const resp = await provider.connect();
                 walletAddress = resp.publicKey.toString();
 
                 console.log("✅ Wallet connecté:", walletAddress);
 
-                // Afficher wallet
+                // Afficher interface
                 document.getElementById('step-connect').classList.add('hidden');
                 document.getElementById('step-amount').classList.remove('hidden');
                 document.getElementById('wallet-address').textContent = 
                     walletAddress.slice(0, 8) + '...' + walletAddress.slice(-8);
 
-                // Charger balance
+                // Charger données
                 await loadBalance();
-                
-                // Charger prix
                 await updateEstimate();
 
-                // Notifier Telegram
+                // Notifier Telegram (si disponible)
                 if (tg && tg.sendData) {
                     try {
                         tg.sendData(JSON.stringify({
@@ -318,20 +369,19 @@
                             address: walletAddress
                         }));
                     } catch (e) {
-                        console.log("Telegram sendData not available");
+                        console.log("Telegram notification skipped");
                     }
                 }
                 
             } catch (err) {
                 console.error("❌ Connection error:", err);
                 
-                // Messages d'erreur plus clairs
                 if (err.message && err.message.includes('User rejected')) {
-                    alert("❌ Vous avez refusé la connexion au wallet.");
+                    alert("❌ Connexion refusée.\n\nVous avez annulé la connexion dans Phantom.");
                 } else if (err.code === 4001) {
                     alert("❌ Connexion refusée dans le wallet.");
                 } else {
-                    alert("❌ Erreur de connexion: " + err.message);
+                    alert("❌ Erreur de connexion.\n\n" + err.message + "\n\nRechargez la page et réessayez.");
                 }
             }
         }
@@ -659,6 +709,17 @@
         // ========================================
         // INIT
         // ========================================
+        
+        // Afficher instructions selon plateforme
+        window.addEventListener('DOMContentLoaded', function() {
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            
+            if (isMobile) {
+                document.getElementById('instructions-mobile').style.display = 'block';
+            } else {
+                document.getElementById('instructions-pc').style.display = 'block';
+            }
+        });
         
         console.log("🌊 Domiconus Buy App - Production v1.0");
         console.log("📍 Token:", TOKEN_MINT);
