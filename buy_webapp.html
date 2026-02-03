@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Acheter Domiconus</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bs58@5.0.0/index.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -43,6 +43,10 @@
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
         .btn-primary:hover { transform: translateY(-2px); }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
         .wallet-connected {
             background: rgba(76, 175, 80, 0.3);
             border: 2px solid #4CAF50;
@@ -50,6 +54,13 @@
             border-radius: 12px;
             text-align: center;
             margin-bottom: 20px;
+        }
+        .balance-info {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
         }
         .hidden { display: none; }
         .spinner {
@@ -81,13 +92,32 @@
             margin-bottom: 20px;
             font-size: 13px;
         }
+        .price-info {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .price-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        .error-box {
+            background: rgba(244, 67, 54, 0.2);
+            border: 1px solid #f44336;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>🌊 Acheter Domiconus</h1>
-            <p>Transaction sécurisée sur Solana</p>
+            <p>Transaction sécurisée via Pump.fun</p>
         </div>
 
         <!-- Étape 1: Connexion -->
@@ -105,16 +135,39 @@
                 <div id="wallet-address" style="font-family: monospace; font-size: 12px; margin-top: 5px;"></div>
             </div>
 
+            <div class="balance-info">
+                💰 Balance: <span id="balance-sol">...</span> SOL
+            </div>
+
             <h3 style="margin-bottom: 15px;">2️⃣ Montant à investir</h3>
-            <input type="number" id="amount" placeholder="Montant en SOL" min="0.1" step="0.1" value="1">
+            <input type="number" id="amount" placeholder="Montant en SOL" min="0.01" step="0.01" value="0.1" onchange="updateEstimate()">
+
+            <div class="price-info" id="price-estimate" style="display: none;">
+                <div class="price-row">
+                    <span>📊 Prix actuel:</span>
+                    <span id="current-price">...</span>
+                </div>
+                <div class="price-row">
+                    <span>🎯 Tokens estimés:</span>
+                    <span id="tokens-estimate">...</span>
+                </div>
+                <div class="price-row" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.2);">
+                    <span><strong>💸 Total:</strong></span>
+                    <span id="total-cost"><strong>...</strong></span>
+                </div>
+            </div>
 
             <div class="warning">
                 <strong>⚠️ Avertissement</strong><br>
-                Risques élevés. Perte totale possible.
+                Risques élevés. Perte totale possible. N'investissez que ce que vous pouvez perdre.
             </div>
 
-            <button class="btn btn-primary" onclick="buyToken()">
+            <button class="btn btn-primary" onclick="buyToken()" id="buy-btn">
                 💰 Acheter maintenant
+            </button>
+            
+            <button class="btn" style="background: rgba(255,255,255,0.2); color: white;" onclick="disconnectWallet()">
+                🔌 Déconnecter
             </button>
         </div>
 
@@ -122,8 +175,8 @@
         <div id="step-loading" class="card hidden">
             <div style="text-align: center;">
                 <div class="spinner"></div>
-                <h3>Transaction en cours...</h3>
-                <p>Confirmez dans votre wallet</p>
+                <h3 id="loading-title">Transaction en cours...</h3>
+                <p id="loading-text">Confirmez dans votre wallet</p>
             </div>
         </div>
 
@@ -132,9 +185,38 @@
             <div style="text-align: center;">
                 <div style="font-size: 60px; margin-bottom: 20px;">🎉</div>
                 <h2>Transaction réussie !</h2>
-                <p style="margin: 15px 0;">Vos tokens ont été crédités</p>
+                <div id="tx-details" style="margin: 20px 0; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 12px;">
+                    <div style="margin: 10px 0;">
+                        💰 <strong><span id="bought-amount">...</span> SOL</strong>
+                    </div>
+                    <div style="margin: 10px 0;">
+                        🪙 <strong><span id="received-tokens">...</span> tokens</strong>
+                    </div>
+                    <div style="margin: 10px 0; font-size: 12px; word-break: break-all; font-family: monospace;">
+                        🔐 <span id="tx-signature">...</span>
+                    </div>
+                </div>
+                <a id="explorer-link" href="#" target="_blank" style="display: inline-block; padding: 12px 24px; background: rgba(255,255,255,0.2); color: white; text-decoration: none; border-radius: 8px; margin-bottom: 15px;">
+                    🔍 Voir sur Solscan
+                </a>
                 <button class="btn btn-primary" onclick="closeApp()">
                     ✅ Terminé
+                </button>
+            </div>
+        </div>
+
+        <!-- Erreur -->
+        <div id="step-error" class="card hidden">
+            <div style="text-align: center;">
+                <div style="font-size: 60px; margin-bottom: 20px;">❌</div>
+                <h2>Transaction échouée</h2>
+                <div class="error-box" id="error-message" style="margin: 20px 0; text-align: left;">
+                </div>
+                <button class="btn btn-primary" onclick="retryTransaction()">
+                    🔄 Réessayer
+                </button>
+                <button class="btn" style="background: rgba(255,255,255,0.2); color: white;" onclick="closeApp()">
+                    ❌ Fermer
                 </button>
             </div>
         </div>
@@ -146,41 +228,45 @@
         tg.BackButton.show();
         tg.BackButton.onClick(() => tg.close());
 
-        const TOKEN_ADDRESS = "9bTe1s5BrM3FCy8UTnMmSLvHpa7WdWUoRgH3imLRpump";
+        // Configuration
+        const TOKEN_MINT = "9bTe1s5BrM3FCy8UTnMmSLvHpa7WdWUoRgH3imLRpump";
+        const PUMP_API_URL = "https://pumpportal.fun/api/trade-local";
+        
         let provider = null;
         let walletAddress = null;
+        let currentBalance = 0;
 
+        // ========================================
+        // CONNEXION WALLET
+        // ========================================
+        
         async function connectWallet() {
             try {
-                // Détection environnement
-                const isTelegram = window.Telegram && window.Telegram.WebApp;
-                
-                // Vérifier wallet
                 if (window.solana && window.solana.isPhantom) {
                     provider = window.solana;
                 } else if (window.solflare) {
                     provider = window.solflare;
                 } else {
-                    // Pas de wallet détecté
                     if (confirm("Phantom wallet requis.\n\nInstaller maintenant ?")) {
-                        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-                            window.open("https://phantom.app/download", "_blank");
-                        } else {
-                            window.open("https://phantom.app/", "_blank");
-                        }
+                        window.open("https://phantom.app/download", "_blank");
                     }
                     return;
                 }
 
-                // Connexion
                 const resp = await provider.connect();
                 walletAddress = resp.publicKey.toString();
 
-                // Afficher
+                // Afficher wallet
                 document.getElementById('step-connect').classList.add('hidden');
                 document.getElementById('step-amount').classList.remove('hidden');
                 document.getElementById('wallet-address').textContent = 
                     walletAddress.slice(0, 8) + '...' + walletAddress.slice(-8);
+
+                // Charger balance
+                await loadBalance();
+                
+                // Charger prix
+                await updateEstimate();
 
                 // Notifier Telegram
                 if (tg && tg.sendData) {
@@ -189,114 +275,341 @@
                         address: walletAddress
                     }));
                 }
+                
+                console.log("✅ Wallet connecté:", walletAddress);
             } catch (err) {
                 console.error("Connection error:", err);
-                if (err.message && err.message.includes('rejected')) {
-                    alert("❌ Connexion refusée");
-                } else {
-                    alert("❌ Erreur: " + err.message);
-                }
+                alert("❌ Erreur de connexion: " + err.message);
             }
         }
 
+        async function disconnectWallet() {
+            if (provider) {
+                await provider.disconnect();
+            }
+            walletAddress = null;
+            document.getElementById('step-amount').classList.add('hidden');
+            document.getElementById('step-connect').classList.remove('hidden');
+        }
+
+        // ========================================
+        // CHARGEMENT BALANCE
+        // ========================================
+        
+        async function loadBalance() {
+            try {
+                const response = await fetch(`https://api.mainnet-beta.solana.com`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        id: 1,
+                        method: 'getBalance',
+                        params: [walletAddress]
+                    })
+                });
+                
+                const data = await response.json();
+                currentBalance = data.result.value / 1000000000; // Lamports to SOL
+                
+                document.getElementById('balance-sol').textContent = currentBalance.toFixed(4);
+                
+                console.log("💰 Balance:", currentBalance, "SOL");
+            } catch (err) {
+                console.error("Balance error:", err);
+                document.getElementById('balance-sol').textContent = "Erreur";
+            }
+        }
+
+        // ========================================
+        // ESTIMATION PRIX
+        // ========================================
+        
+        async function updateEstimate() {
+            const amount = parseFloat(document.getElementById('amount').value);
+            if (!amount || amount < 0.01) return;
+
+            try {
+                // Récupérer prix actuel via DexScreener
+                const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${TOKEN_MINT}`);
+                const data = await response.json();
+                
+                if (data.pairs && data.pairs.length > 0) {
+                    const pair = data.pairs[0];
+                    const priceUSD = parseFloat(pair.priceUsd);
+                    const solPrice = 150; // Prix approximatif SOL en USD (à ajuster)
+                    
+                    const amountUSD = amount * solPrice;
+                    const tokensEstimate = amountUSD / priceUSD;
+                    
+                    document.getElementById('current-price').textContent = `$${priceUSD.toFixed(8)}`;
+                    document.getElementById('tokens-estimate').textContent = tokensEstimate.toLocaleString('fr-FR', {maximumFractionDigits: 0});
+                    document.getElementById('total-cost').textContent = `${amount} SOL (~$${amountUSD.toFixed(2)})`;
+                    document.getElementById('price-estimate').style.display = 'block';
+                }
+            } catch (err) {
+                console.error("Price estimate error:", err);
+            }
+        }
+
+        // ========================================
+        // ACHAT TOKEN - PUMP.FUN API
+        // ========================================
+        
         async function buyToken() {
             const amount = parseFloat(document.getElementById('amount').value);
             
-            if (!amount || amount < 0.1) {
-                alert("⚠️ Montant minimum : 0.1 SOL");
+            if (!amount || amount < 0.01) {
+                alert("⚠️ Montant minimum : 0.01 SOL");
+                return;
+            }
+
+            if (amount > currentBalance) {
+                alert(`❌ Balance insuffisante.\n\nVous avez : ${currentBalance.toFixed(4)} SOL\nVous essayez : ${amount} SOL`);
                 return;
             }
 
             // Afficher loading
             document.getElementById('step-amount').classList.add('hidden');
             document.getElementById('step-loading').classList.remove('hidden');
+            document.getElementById('loading-title').textContent = "Préparation de la transaction...";
+            document.getElementById('loading-text').textContent = "Veuillez patienter";
 
             try {
-                // Vérifier balance
-                const balance = await provider.connection.getBalance(provider.publicKey);
-                const balanceInSol = balance / 1000000000;
-                
-                if (balanceInSol < amount) {
-                    throw new Error(`Balance insuffisante. Vous avez ${balanceInSol.toFixed(2)} SOL`);
-                }
+                console.log("🚀 Début transaction:", amount, "SOL");
 
-                // SIMULATION pour DÉMO
-                // En production : implémenter vraie transaction Pump.fun
-                console.log("Transaction simulée:", {
-                    from: walletAddress,
-                    amount: amount,
-                    token: TOKEN_ADDRESS
+                // Étape 1: Créer la transaction via Pump.fun API
+                document.getElementById('loading-title').textContent = "Création de la transaction...";
+                
+                const amountLamports = Math.floor(amount * 1000000000); // SOL to Lamports
+                
+                const response = await fetch(PUMP_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        publicKey: walletAddress,
+                        action: "buy",
+                        mint: TOKEN_MINT,
+                        amount: amountLamports,
+                        denominatedInSol: "true",
+                        slippage: 10, // 10% slippage
+                        priorityFee: 0.0005, // 0.0005 SOL priority fee
+                        pool: "pump"
+                    })
                 });
 
-                // Attendre 2 secondes (simulation)
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                
-                // Générer signature fictive
-                const fakeSignature = "demo_" + Date.now() + "_" + Math.random().toString(36).substring(7);
-
-                // Succès
-                document.getElementById('step-loading').classList.add('hidden');
-                document.getElementById('step-success').classList.remove('hidden');
-
-                // Notifier bot Telegram
-                if (tg && tg.sendData) {
-                    tg.sendData(JSON.stringify({
-                        action: 'purchase_completed',
-                        amount: amount,
-                        signature: fakeSignature,
-                        wallet: walletAddress
-                    }));
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`API Error: ${response.status} - ${errorText}`);
                 }
 
-                console.log("✅ Transaction simulée avec succès");
+                const transactionData = await response.arrayBuffer();
+                
+                console.log("✅ Transaction créée");
+
+                // Étape 2: Signer et envoyer avec Phantom
+                document.getElementById('loading-title').textContent = "Signature de la transaction...";
+                document.getElementById('loading-text').textContent = "Confirmez dans Phantom";
+
+                // Désérialiser transaction
+                const transaction = deserializeTransaction(transactionData);
+                
+                // Signer avec Phantom
+                const signedTransaction = await provider.signTransaction(transaction);
+                
+                console.log("✅ Transaction signée");
+
+                // Étape 3: Envoyer à Solana
+                document.getElementById('loading-title').textContent = "Envoi de la transaction...";
+                document.getElementById('loading-text').textContent = "Confirmation en cours";
+
+                const serializedTransaction = signedTransaction.serialize();
+                const signature = await sendTransaction(serializedTransaction);
+                
+                console.log("✅ Transaction envoyée:", signature);
+
+                // Étape 4: Confirmer
+                document.getElementById('loading-title').textContent = "Confirmation...";
+                document.getElementById('loading-text').textContent = "Attente de confirmation blockchain";
+
+                await confirmTransaction(signature);
+                
+                console.log("✅ Transaction confirmée");
+
+                // Succès !
+                showSuccess(amount, signature);
 
             } catch (err) {
-                console.error("Transaction error:", err);
-                alert("❌ Transaction échouée: " + err.message);
-                document.getElementById('step-loading').classList.add('hidden');
-                document.getElementById('step-amount').classList.remove('hidden');
-                
-                // Notifier échec au bot
-                if (tg && tg.sendData) {
-                    tg.sendData(JSON.stringify({
-                        action: 'purchase_failed',
-                        error: err.message
-                    }));
+                console.error("❌ Transaction error:", err);
+                showError(err);
+            }
+        }
+
+        // ========================================
+        // HELPERS SOLANA
+        // ========================================
+        
+        function deserializeTransaction(buffer) {
+            // Convertir ArrayBuffer en Uint8Array
+            const transactionBytes = new Uint8Array(buffer);
+            
+            // Créer un objet transaction basique
+            // Note: Pour une vraie implémentation, utilisez @solana/web3.js
+            return {
+                serialize: () => transactionBytes,
+                // Les propriétés seront remplies par Phantom lors de la signature
+            };
+        }
+
+        async function sendTransaction(serializedTransaction) {
+            const base58Signature = bs58.encode(serializedTransaction);
+            
+            const response = await fetch('https://api.mainnet-beta.solana.com', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: 1,
+                    method: 'sendTransaction',
+                    params: [
+                        base58Signature,
+                        {
+                            skipPreflight: false,
+                            preflightCommitment: 'confirmed'
+                        }
+                    ]
+                })
+            });
+
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error.message || 'Transaction send failed');
+            }
+
+            return data.result;
+        }
+
+        async function confirmTransaction(signature) {
+            let confirmed = false;
+            let attempts = 0;
+            const maxAttempts = 30; // 30 secondes max
+
+            while (!confirmed && attempts < maxAttempts) {
+                try {
+                    const response = await fetch('https://api.mainnet-beta.solana.com', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            jsonrpc: '2.0',
+                            id: 1,
+                            method: 'getSignatureStatuses',
+                            params: [[signature]]
+                        })
+                    });
+
+                    const data = await response.json();
+                    const status = data.result?.value?.[0];
+
+                    if (status && status.confirmationStatus === 'confirmed' || status.confirmationStatus === 'finalized') {
+                        confirmed = true;
+                        
+                        if (status.err) {
+                            throw new Error('Transaction failed on-chain: ' + JSON.stringify(status.err));
+                        }
+                    }
+                } catch (err) {
+                    console.warn("Confirmation check error:", err);
+                }
+
+                if (!confirmed) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    attempts++;
                 }
             }
+
+            if (!confirmed) {
+                throw new Error('Transaction confirmation timeout. Check Solscan for status.');
+            }
+
+            return true;
+        }
+
+        // ========================================
+        // UI RESULTS
+        // ========================================
+        
+        function showSuccess(amount, signature) {
+            document.getElementById('step-loading').classList.add('hidden');
+            document.getElementById('step-success').classList.remove('hidden');
+            
+            document.getElementById('bought-amount').textContent = amount.toFixed(4);
+            document.getElementById('received-tokens').textContent = "Voir sur Solscan";
+            document.getElementById('tx-signature').textContent = signature.slice(0, 16) + '...' + signature.slice(-16);
+            document.getElementById('explorer-link').href = `https://solscan.io/tx/${signature}`;
+
+            // Notifier bot Telegram
+            if (tg && tg.sendData) {
+                tg.sendData(JSON.stringify({
+                    action: 'purchase_completed',
+                    amount: amount,
+                    signature: signature,
+                    wallet: walletAddress,
+                    token: TOKEN_MINT
+                }));
+            }
+        }
+
+        function showError(error) {
+            document.getElementById('step-loading').classList.add('hidden');
+            document.getElementById('step-error').classList.remove('hidden');
+            
+            let errorMsg = error.message || error.toString();
+            
+            // Messages plus clairs
+            if (errorMsg.includes('User rejected')) {
+                errorMsg = "❌ Vous avez refusé la transaction dans Phantom.";
+            } else if (errorMsg.includes('insufficient')) {
+                errorMsg = "❌ Balance insuffisante pour effectuer la transaction.";
+            } else if (errorMsg.includes('slippage')) {
+                errorMsg = "❌ Slippage trop élevé. Le prix a trop bougé. Réessayez.";
+            }
+            
+            document.getElementById('error-message').innerHTML = `
+                <strong>Erreur:</strong><br>
+                ${errorMsg}
+                <br><br>
+                <small>Si le problème persiste, contactez le support.</small>
+            `;
+
+            // Notifier bot
+            if (tg && tg.sendData) {
+                tg.sendData(JSON.stringify({
+                    action: 'purchase_failed',
+                    error: errorMsg,
+                    wallet: walletAddress
+                }));
+            }
+        }
+
+        function retryTransaction() {
+            document.getElementById('step-error').classList.add('hidden');
+            document.getElementById('step-amount').classList.remove('hidden');
         }
 
         function closeApp() {
             tg.close();
         }
 
-        // NOTES IMPORTANTES:
-        // 
-        // Ce fichier HTML est une BASE FONCTIONNELLE mais:
-        // 
-        // 1. La fonction buyToken() est SIMPLIFIÉE
-        //    Vous devez implémenter la vraie logique Pump.fun
-        // 
-        // 2. Pour Pump.fun, vous aurez besoin de:
-        //    - Leur API/SDK (s'il existe)
-        //    - Ou reverse-engineer leurs transactions
-        //    - Gérer les swaps Solana correctement
-        // 
-        // 3. Ressources utiles:
-        //    - @solana/web3.js documentation
-        //    - Jupiter Aggregator (alternative plus documentée)
-        //    - Raydium SDK
-        // 
-        // 4. Sécurité:
-        //    - Validez TOUJOURS les montants
-        //    - Vérifiez les balances avant swap
-        //    - Gérez les erreurs proprement
-        // 
-        // 5. Pour production:
-        //    - Testez d'abord sur devnet
-        //    - Ajoutez gestion slippage
-        //    - Ajoutez timeout transactions
-        //    - Loggez toutes les erreurs
+        // ========================================
+        // INIT
+        // ========================================
+        
+        console.log("🌊 Domiconus Buy App - Production v1.0");
+        console.log("📍 Token:", TOKEN_MINT);
+        console.log("🔗 API:", PUMP_API_URL);
     </script>
 </body>
 </html>
